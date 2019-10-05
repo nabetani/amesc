@@ -35,7 +35,6 @@ class Amesc
     sleep(1)
     FileUtils.mkdir_p(File.split(dest)[0])
     File.open(dest, 'w') { |f| f.write(body) }
-    @downloaded[uri.to_s] = true
   end
 
   def local_img_path(uri)
@@ -44,12 +43,12 @@ class Amesc
     File.join(dest, 'img', "#{body}#{ext}")
   end
 
-  def get_image(img_uri, host, scheme)
-    img_uri.scheme ||= scheme
-    img_uri.host ||= host
-    img_uri.query = nil
-    img_path = local_img_path(img_uri)
-    download(img_uri, img_path)
+  def get_image(uri, scheme, host)
+    uri.scheme ||= scheme
+    uri.host ||= host
+    uri.query = nil
+    img_path = local_img_path(uri)
+    download(uri, img_path)
     img_path
   end
 
@@ -60,18 +59,23 @@ class Amesc
       ext = File.extname(img_uri.path).downcase
       next unless %w[.jpg .gif .png .jpeg].include?(ext)
 
-      img_path = get_image(img_uri, host, scheme)
+      img_path = get_image(img_uri, scheme, host)
       img['src'] = File.relative_path(dest, img_path)
     end
   end
 
   def download_rel?(rel)
-    return unless %w[stylesheet].include?(rel)
+    %w[stylesheet].include?(rel)
   end
 
-  def get_links(doc, _scheme, _host)
+  def get_links(doc, scheme, host)
     doc.xpath('//link').each do |link|
       next unless download_rel?(link['rel'])
+
+      uri = URI.parse(link['href'])
+      # <link rel="stylesheet" type="text/css" href="https://stat100.ameba.jp/ameblo/pc/css/templateStd-1.23.0.css">
+      path = get_image(uri, scheme, host)
+      link['href'] = File.relative_path(dest, path)
     end
   end
 
