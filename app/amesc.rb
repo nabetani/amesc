@@ -38,28 +38,38 @@ class Amesc
     @downloaded[uri.to_s] = true
   end
 
-  def local_img_path(uri, ext)
+  def local_img_path(uri)
+    ext = File.extname(uri.path).downcase
     body = Digest::SHA256.hexdigest(uri.to_s)
     File.join(dest, 'img', "#{body}#{ext}")
   end
 
-  def get_page(num)
-    html_uri = "#{src_root}/page-#{num}.html"
-    scheme, host = URI.parse(html_uri).then { |x| [x.scheme, x.host] }
-    doc = setup_doc(html_uri)
+  def get_image(img_uri, host, scheme)
+    img_uri.scheme ||= scheme
+    img_uri.host ||= host
+    img_uri.query = nil
+    img_path = local_img_path(img_uri)
+    download(img_uri, img_path)
+    img_path
+  end
+
+  def get_images(doc, scheme, host)
     doc.xpath('//img').each do |img|
       src = img['src']
       img_uri = URI.parse(src)
       ext = File.extname(img_uri.path).downcase
       next unless %w[.jpg .gif .png .jpeg].include?(ext)
 
-      img_uri.scheme ||= scheme
-      img_uri.host ||= host
-      img_uri.query = nil
-      img_path = local_img_path(img_uri, ext)
-      download(img_uri, img_path)
+      img_path = get_image(img_uri, host, scheme)
       img['src'] = File.relative_path(dest, img_path)
     end
+  end
+
+  def get_page(num)
+    html_uri = "#{src_root}/page-#{num}.html"
+    scheme, host = URI.parse(html_uri).then { |x| [x.scheme, x.host] }
+    doc = setup_doc(html_uri)
+    get_images(doc, scheme, host)
     remove_scripts(doc)
     html_fn = File.join(File.join(dest, "#{num}.html"))
     File.open(html_fn, 'w') { |f| f.puts(doc.to_html) }
