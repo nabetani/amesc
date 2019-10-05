@@ -16,6 +16,7 @@ end
 def remove_scripts(doc)
   doc.xpath('//script').each do |sc|
     sc.children.unlink
+    sc['src'] = nil
   end
 end
 
@@ -23,12 +24,11 @@ class Amesc
   def initialize(src_root, dest)
     @dest = dest
     @src_root = src_root
-    @downloaded = {}
   end
   attr_reader(:dest, :src_root)
 
   def download(uri, dest)
-    return if @downloaded[uri.to_s]
+    return if File.exist?(dest)
 
     puts("download: #{uri}")
     body = OpenURI.open_uri(uri.to_s, &:read)
@@ -65,10 +65,21 @@ class Amesc
     end
   end
 
+  def download_rel?(rel)
+    return unless %w[stylesheet].include?(rel)
+  end
+
+  def get_links(doc, _scheme, _host)
+    doc.xpath('//link').each do |link|
+      next unless download_rel?(link['rel'])
+    end
+  end
+
   def get_page(num)
     html_uri = "#{src_root}/page-#{num}.html"
     scheme, host = URI.parse(html_uri).then { |x| [x.scheme, x.host] }
     doc = setup_doc(html_uri)
+    get_links(doc, scheme, host)
     get_images(doc, scheme, host)
     remove_scripts(doc)
     html_fn = File.join(File.join(dest, "#{num}.html"))
