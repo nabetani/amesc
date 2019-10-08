@@ -68,6 +68,7 @@ class Amesc
   def get_images(doc, scheme, host)
     doc.xpath('//img').each do |img|
       src = img['src']
+      next unless src
       img_uri = URI.parse(src)
       next unless image?(img_uri)
 
